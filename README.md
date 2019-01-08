@@ -6,10 +6,7 @@ The code is heavily based on subtee work.
 
 ## Usage
 
-unlock.py [-h] [--output FILENAME] [--framework FWV]  
-               [--payload PAYLOAD] [--lhost LHOST] [--lport LPORT]  
-               [--method METHOD] [--enaobf] [--encshell ENCSHELL]  
-               [--custom CUSTOM] [--x64]  
+unlock.py [-h] [--output FILENAME] [--framework FWV] [--payload PAYLOAD] [--lhost LHOST] [--lport LPORT]  [--method METHOD] [--enaobf] [--encshell ENCSHELL] [--custom CUSTOM] [--x64]  
 
 ## Arguments:
 --output FILENAME   Output file name without extension  
