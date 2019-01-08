@@ -17,7 +17,7 @@ unlock.py [-h] [--output FILENAME] [--framework FWV] [--payload PAYLOAD] [--lhos
 --method METHOD      Evasion method: msbuild or installUtil  
 --enaobf             Enable CS code obfuscation  
 --encshell ENCSHELL  Encode shell with: *date* or hostname  
---custom CUSTOM      Custom binary payload (don't use with --payload/--lhost/--lport  
+--custom CUSTOM      Custom binary payload (don't use with --payload/--lhost/--lport)  
 --x64                set if your custom payload is x64  
 
 ## Examples
