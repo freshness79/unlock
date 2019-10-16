@@ -28,3 +28,6 @@ unlock.py [-h] [--output FILENAME] [--framework FWV] [--payload PAYLOAD] [--lhos
 - python unlock.py --framework 4.0 --custom shellcode.bin --x64 --encshell yyyymm
 - python unlock.py --framework 4.0 --custom shellcode.bin --x64 --encshell hostname --enctext SECRETARY
 - python unlock.py --framework 4.0 --custom shellcode.bin --x64 --encshell domain --enctext CONTOSO
+
+## Notes
+- everything but msbuild on framework 4.0 is untested
